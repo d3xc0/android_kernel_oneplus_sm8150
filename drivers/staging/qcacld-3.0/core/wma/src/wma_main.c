@@ -2067,9 +2067,9 @@ static int wma_flush_complete_evt_handler(void *handle,
 		 * on which tid/hwq stall happened
 		 *
 		 */
-		QDF_TRACE(QDF_MODULE_ID_WMA, QDF_TRACE_LEVEL_DEBUG,
+		QDF_TRACE(QDF_MODULE_ID_WMA, QDF_TRACE_LEVEL_ERROR,
 			  "Data Stall event:");
-		QDF_TRACE(QDF_MODULE_ID_WMA, QDF_TRACE_LEVEL_DEBUG,
+		QDF_TRACE(QDF_MODULE_ID_WMA, QDF_TRACE_LEVEL_ERROR,
 			  "data_stall_type: %x vdev_id_bitmap: %x reason_code1: %x reason_code2: %x recovery_type: %x ",
 			  data_stall_event->data_stall_type,
 			  data_stall_event->vdev_id_bitmap,
