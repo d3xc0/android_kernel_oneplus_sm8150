@@ -955,7 +955,15 @@ static QDF_STATUS extract_gtk_rsp_event_tlv(wmi_unified_t wmi_handle,
 		return QDF_STATUS_E_INVAL;
 	}
 
-	if (len < sizeof(WMI_GTK_OFFLOAD_STATUS_EVENT_fixed_param)) {
+	/*
+	 * Older firmware (e.g. WLAN.HL.3.2 on sm8150) sends this event without
+	 * the trailing IGTK/GTK/BIGTK key fields that newer fw-api headers
+	 * define, so a full-struct length check rejects every event. Only
+	 * vdev_id, refresh_cnt and replay_counter are consumed below, so
+	 * require just the bytes up to and including replay_counter.
+	 */
+	if (len < offsetof(WMI_GTK_OFFLOAD_STATUS_EVENT_fixed_param,
+			   igtk_keyIndex)) {
 		WMI_LOGE("Invalid length for GTK status");
 		return QDF_STATUS_E_INVAL;
 	}
