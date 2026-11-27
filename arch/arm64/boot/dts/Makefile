@@ -30,6 +30,7 @@ dts-dirs += 18821
 dts-dirs += 18857
 dts-dirs += 18865
 dts-dirs += 19801
+dts-dirs += 19861
 dts-dirs += 19863
 #endif
 
