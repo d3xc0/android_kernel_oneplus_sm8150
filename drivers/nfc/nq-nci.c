@@ -43,6 +43,8 @@ struct nqx_platform_data {
 
 static const struct of_device_id msm_match_table[] = {
 	{.compatible = "qcom,nq-nci"},
+	/* OnePlus stock DTBO describes the same NXP controller this way */
+	{.compatible = "nxp,pn544"},
 	{}
 };
 
@@ -1133,8 +1135,15 @@ static int nqx_clock_select(struct nqx_dev *nqx_dev)
 
 	nqx_dev->s_clk = clk_get(&nqx_dev->client->dev, "ref_clk");
 
-	if (nqx_dev->s_clk == NULL)
+	/*
+	 * clk_get() returns an ERR_PTR, not NULL, when the node has no
+	 * "ref_clk" (e.g. OnePlus stock DTBOs set qcom,clk-src without a
+	 * clocks property); passing that to clk_prepare_enable() panics.
+	 */
+	if (IS_ERR_OR_NULL(nqx_dev->s_clk)) {
+		nqx_dev->s_clk = NULL;
 		goto err_clk;
+	}
 
 	if (nqx_dev->clk_run == false)
 		r = clk_prepare_enable(nqx_dev->s_clk);
@@ -1168,28 +1177,47 @@ static int nqx_clock_deselect(struct nqx_dev *nqx_dev)
 	return r;
 }
 
+/*
+ * Look up a GPIO by its qcom,nq-* name, falling back to the nxp,pn544-*
+ * name used by OnePlus stock DTBOs (e.g. the 7T Pro 5G McLaren, whose
+ * stock DTBO must be kept for its SDX55M overlays).
+ */
+static int nq_get_named_gpio(struct device_node *np, const char *qcom_name,
+			     const char *nxp_name)
+{
+	int gpio = of_get_named_gpio(np, qcom_name, 0);
+
+	if (!gpio_is_valid(gpio) && nxp_name)
+		gpio = of_get_named_gpio(np, nxp_name, 0);
+	return gpio;
+}
+
 static int nfc_parse_dt(struct device *dev, struct nqx_platform_data *pdata)
 {
 	int r = 0;
 	struct device_node *np = dev->of_node;
 
-	pdata->en_gpio = of_get_named_gpio(np, "qcom,nq-ven", 0);
+	pdata->en_gpio = nq_get_named_gpio(np, "qcom,nq-ven",
+					"nxp,pn544-ven");
 	if ((!gpio_is_valid(pdata->en_gpio)))
 		return -EINVAL;
 	disable_ctrl = pdata->en_gpio;
 
-	pdata->irq_gpio = of_get_named_gpio(np, "qcom,nq-irq", 0);
+	pdata->irq_gpio = nq_get_named_gpio(np, "qcom,nq-irq",
+					"nxp,pn544-irq");
 	if ((!gpio_is_valid(pdata->irq_gpio)))
 		return -EINVAL;
 
-	pdata->firm_gpio = of_get_named_gpio(np, "qcom,nq-firm", 0);
+	pdata->firm_gpio = nq_get_named_gpio(np, "qcom,nq-firm",
+					"nxp,pn544-fw-dwnld");
 	if (!gpio_is_valid(pdata->firm_gpio)) {
 		dev_warn(dev,
 			"FIRM GPIO <OPTIONAL> error getting from OF node\n");
 		pdata->firm_gpio = -EINVAL;
 	}
 
-	pdata->ese_gpio = of_get_named_gpio(np, "qcom,nq-esepwr", 0);
+	pdata->ese_gpio = nq_get_named_gpio(np, "qcom,nq-esepwr",
+					"nxp,pn544-ese-pwr");
 	if (!gpio_is_valid(pdata->ese_gpio)) {
 		dev_warn(dev,
 			"ese GPIO <OPTIONAL> error getting from OF node\n");
@@ -1201,7 +1229,8 @@ static int nfc_parse_dt(struct device *dev, struct nqx_platform_data *pdata)
 	else
 		pdata->clk_pin_voting = true;
 
-	pdata->clkreq_gpio = of_get_named_gpio(np, "qcom,nq-clkreq", 0);
+	pdata->clkreq_gpio = nq_get_named_gpio(np, "qcom,nq-clkreq",
+					"nxp,pn544-clk-gpio");
 
 	return r;
 }
