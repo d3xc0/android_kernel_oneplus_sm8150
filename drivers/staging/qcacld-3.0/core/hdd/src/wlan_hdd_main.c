@@ -1903,6 +1903,28 @@ static void hdd_update_tgt_vht_cap(struct hdd_context *hdd_ctx,
 		band_5g->vht_cap.cap |= IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_3895;
 
 
+	/*
+	 * Honour gVhtChannelWidth for STA as older drivers did: HL3.2
+	 * firmware advertises 160/80+80 MHz in vht_cap_info, but the stock
+	 * sm8150 ini caps 11ac at 80 MHz and at 160 MHz the MAC watchdog
+	 * (WLAN_DBG_DATA_STALL_MAC_WDOG_ERRORS) stalls traffic.
+	 */
+	{
+		uint8_t ini_ch_width = eHT_CHANNEL_WIDTH_80MHZ;
+
+		if (QDF_IS_STATUS_SUCCESS(ucfg_mlme_get_vht_channel_width(
+				hdd_ctx->psoc, &ini_ch_width)) &&
+		    ini_ch_width < eHT_CHANNEL_WIDTH_160MHZ &&
+		    (cfg->supp_chan_width &
+		     ((1 << eHT_CHANNEL_WIDTH_160MHZ) |
+		      (1 << eHT_CHANNEL_WIDTH_80P80MHZ)))) {
+			hdd_info("gVhtChannelWidth %u: not advertising 160/80+80 MHz",
+				 ini_ch_width);
+			cfg->supp_chan_width = 1 << eHT_CHANNEL_WIDTH_80MHZ;
+			cfg->vht_short_gi_160 = 0;
+		}
+	}
+
 	if (cfg->supp_chan_width & (1 << eHT_CHANNEL_WIDTH_80P80MHZ)) {
 		band_5g->vht_cap.cap |=
 			IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160_80PLUS80MHZ;
